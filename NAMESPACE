@@ -2,7 +2,9 @@
 
 export(ggplot_shiny)
 import(RColorBrewer)
+import(dplyr)
 import(ggplot2)
+import(glue)
 import(haven)
 import(readxl)
 import(shiny)

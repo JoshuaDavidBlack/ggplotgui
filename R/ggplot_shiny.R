@@ -6,6 +6,8 @@
 #' #ggplot_shiny()
 #' #ggplot_shiny(mpg)
 #' @import ggplot2
+#' @import glue
+#' @import dplyr
 #' @import shiny
 #' @import readxl
 #' @import haven
@@ -15,20 +17,24 @@
 #' @importFrom readr read_delim locale
 #' @importFrom DT renderDT DTOutput
 
-
 #' @export
 ggplot_shiny <- function( dataset = NA ) {
 
   ui <- fluidPage(
-    headerPanel("ggplot GUI"),
+    headerPanel("ARTS105 Data Visualisation Interface"),
+
     sidebarPanel(width = 3,
+
+
+      # Data upload panel
       conditionalPanel(
         condition = "input.tabs=='Data upload'",
         h4("Data upload"),
         radioButtons(
-          "data_input", "",
+          "data_input",
+          "",
           choices = if (is.data.frame(dataset)) {
-            list("Load sample data" = 1,
+            list("Load sample data" = 1, # Ideally, change these from digits to meaningful names.
                  "Upload text file" = 2,
                  "Paste data" = 3,
                  "Data passed through R environment" = 4)
@@ -37,11 +43,15 @@ ggplot_shiny <- function( dataset = NA ) {
                    "Upload file" = 2,
                    "Paste data" = 3)
               },
-          selected = if (is.data.frame(dataset)) 4 else 1),
+          selected = if (is.data.frame(dataset)) 4 else 1
+        ),
+        # Panel on if default dataset used.
         conditionalPanel(
           condition = "input.data_input=='1'",
           h5("dataset 'mpg' from library(ggplot2) loaded")
-          ),
+        ),
+
+        # Panel to allow user to upload data.
         conditionalPanel(
           condition = "input.data_input=='2'",
           h5("Upload file: "),
@@ -53,6 +63,7 @@ ggplot_shiny <- function( dataset = NA ) {
                            "Stata" = "Stata",
                            "SAS" = "SAS"),
                       selected = "text"),
+          # If csv, panel asks for details of the csv file.
           conditionalPanel(
             condition = "input.file_type=='text'",
             selectInput("upload_delim", "Delimiter:",
@@ -66,9 +77,12 @@ ggplot_shiny <- function( dataset = NA ) {
                              "Point" = "."),
                         selected = "Comma")
           ),
+          # Button to submit the user file.
           actionButton("submit_datafile_button",
                        "Submit datafile")
           ),
+
+        # Option for pasting data directly.
         conditionalPanel(
           condition = "input.data_input=='3'",
           h5("Paste data below:"),
@@ -77,6 +91,7 @@ ggplot_shiny <- function( dataset = NA ) {
                         rows = 10,
                         cols = 20, ""),
           actionButton("submit_data_button", "Submit data"),
+          # Format of pasted data required.
           selectInput("text_delim", "Delimiter:",
                       list("Semicolon" = ";",
                            "Tab" = "\t",
@@ -89,65 +104,86 @@ ggplot_shiny <- function( dataset = NA ) {
                       selected = "Comma")
         )
       ),
+
+
+      # Plot panel
       conditionalPanel(
-        condition = "input.tabs=='ggplot' || input.tabs=='Plotly' ||
-                    input.tabs=='R-code'",
+        condition = "input.tabs=='Plot'",
         h4("Create visualization"),
+        # Select variable type.
         selectInput(inputId = "Type",
                     label = "Type of graph:",
-                    choices = c("Boxplot", "Density", "Dot + Error",
-                                "Dotplot", "Histogram", "Scatter", "Violin"),
-                    selected = "Violin"),
-        selectInput("y_var", "Y-variable", choices = ""),
+                    choices = c(
+                      "Boxplot", "Density", "Histogram",
+                      "Scatter", "Violin"
+                    ),
+                    selected = "Violin"
+        ),
+        # Set y variable
+        selectInput("y_var", "Y-variable", choices = ""), # Presumably choices set by a function below?
+
+        # Working by excluding cases/ The two plots without x vars, hist and density, do not let you choose an xvar.
         conditionalPanel(
           condition = "input.Type!='Density' && input.Type!='Histogram'",
           selectInput("x_var", "X-variable", choices = "")
         ),
+
+        # Allow selection of group/colour aesthetic.
         selectInput("group", "Group (or colour)", choices = ""),
-        selectInput("facet_row", "Facet Row", choices = ""),
-        selectInput("facet_col", "Facet Column", choices = ""),
+
+        # Select special cases (positively) - if boxplot, violin, or dot error
+        # allow for dataplots to be placed on the plot (jittered).
         conditionalPanel(
-          condition = "input.Type == 'Boxplot' || input.Type == 'Violin' ||
-          input.Type == 'Dot + Error'",
+          condition = "input.Type == 'Boxplot' || input.Type == 'Violin'",
           checkboxInput(inputId = "jitter",
                         label = strong("Show data points (jittered)"),
                         value = FALSE)
         ),
+
+        # Allow notch option for boxplots.
         conditionalPanel(
           condition = "input.Type == 'Boxplot'",
           checkboxInput(inputId = "notch",
                         label = strong("Notched box plot"),
                         value = FALSE)
         ),
+
+        # Allow opacity control for hist and density.
         conditionalPanel(
           condition = "input.Type == 'Density' || input.Type == 'Histogram'",
           sliderInput("alpha", "Opacity:", min = 0, max = 1, value = 0.8)
         ),
+        # Allow binwidth fo histogram and dotplots.
         conditionalPanel(
           condition = "input.Type == 'Histogram' || input.Type=='Dotplot'",
           numericInput("binwidth", "Binwidth:", value = 1)
         ),
+        # Dotplot direction args.
         conditionalPanel(
           condition = "input.Type == 'Dotplot'",
           selectInput("dot_dir", "Direction stack:",
                       choices = c("up", "down", "center", "centerwhole"),
                       selected = "up")
         ),
+        # Density and violin get bandwith adjustment.
         conditionalPanel(
           condition = "input.Type == 'Density' || input.Type == 'Violin'",
           sliderInput(inputId = "adj_bw",
                       label = "Bandwidth adjustment:",
                       min = 0.01, max = 2, value = 1, step = 0.1)
         ),
+
+        # Add regression line.
         conditionalPanel(
           condition = "input.Type == 'Scatter'",
           checkboxInput(inputId = "line",
-                        label = strong("Show regression line"),
-                        value = FALSE),
+                        label = strong("Show line"),
+                        value = FALSE
+          ),
           conditionalPanel(
             condition = "input.line == true",
             selectInput("smooth", "Smoothening function",
-                        choices = c("lm", "loess", "gam"))
+                        choices = c("lm", "loess")) # Need to just have lm and loess here.
           ),
           conditionalPanel(
             condition = "input.line == true",
@@ -156,21 +192,17 @@ ggplot_shiny <- function( dataset = NA ) {
                           value = FALSE)
           )
         ),
-        conditionalPanel(
-          condition = "input.Type == 'Dot + Error'",
-          selectInput("CI", "Confidence Interval:",
-                      choices = c("68% (1 SE)" = 1,
-                                  "90%" = 1.645,
-                                  "95%" = 1.96,
-                                  "99%" = 2.575),
-                      selected = 1.96)
-        )
       ),
+
+
+      # Description of usage.
       conditionalPanel(
         condition = "input.tabs=='Info'",
-        h4("Info")
+        h4("Info") # Better to just have nothing here?
       )
     ),
+
+    # This is text which sits above the main tabs.
     h6("For more info see the 'Info'-tab or visit",
        a("https://github.com/gertstulp/ggplotgui",
          href = "https://github.com/gertstulp/ggplotgui")),
@@ -182,15 +214,16 @@ ggplot_shiny <- function( dataset = NA ) {
     mainPanel(width = 6,
       tabsetPanel(
         type = "tabs",
+        # Outputs a table of the data.
         tabPanel("Data upload", DT::DTOutput("out_table")),
-        tabPanel("ggplot",
+        # The ggplot panel defined here.
+        tabPanel("Plot",
                  mainPanel(
                    downloadButton("download_plot_PDF",
                                   "Download pdf of figure"),
                    plotOutput("out_ggplot"))
                 ),
-        tabPanel("Plotly", plotlyOutput("out_plotly")),
-        tabPanel("R-code", verbatimTextOutput("out_r_code")),
+        # Defines all info text here. Will have to manually update.
         tabPanel("Info",
 h3("Background"),
 p(
@@ -261,8 +294,7 @@ p(
 #####################################
 
     conditionalPanel(
-      condition = "input.tabs=='ggplot' || input.tabs=='Plotly' ||
-                    input.tabs=='R-code'",
+      condition = "input.tabs=='Plot'",
       sidebarPanel(
         width = 3,
         h4("Change aesthetics"),
@@ -389,13 +421,13 @@ p(
                             strong("Remove minor gridlines"), FALSE)
             ),
             selectInput("theme", "Theme",
-                        choices = c("bw" = "theme_bw()",
-                                    "classic" = "theme_classic()",
-                                    "dark" = "theme_dark()",
-                                    "grey" = "theme_grey()",
-                                    "light" = "theme_light()",
-                                    "line_draw" = "theme_linedraw()",
-                                    "minimal" = "theme_minimal()"),
+                        choices = c("bw" = "theme_bw",
+                                    "classic" = "theme_classic",
+                                    "dark" = "theme_dark",
+                                    "grey" = "theme_grey",
+                                    "light" = "theme_light",
+                                    "line_draw" = "theme_linedraw",
+                                    "minimal" = "theme_minimal"),
                         selected = "theme_bw()")
           ),
           tabPanel(
@@ -438,7 +470,33 @@ p(
                            "Plot height (in cm):", value = 14),
               numericInput("fig_width_download",
                            "Plot width (in cm):", value = 14)
+            ),
+            checkboxInput("adj_axis_lims",
+                          strong("Adjust axis limits"), FALSE),
+            conditionalPanel(
+              condition = "input.adj_axis_lims",
+              numericInput(
+                "xmin",
+                "Minimum x value:",
+                value = -1
+              ),
+              numericInput(
+                "xmax",
+                "Maximum x value:",
+                value = 1
+              ),
+              numericInput(
+                "ymin",
+                "Minimum y value:",
+                value = -1
+              ),
+              numericInput(
+                "ymax",
+                "Maximum y value:",
+                value = 1
+              )
             )
+
           )
         ) # Close tabsetPanel
       ) # Close sidebarPanel
@@ -459,27 +517,28 @@ p(
                                  is.double(x),
                                df_shiny()))
 
-      # Make list of variables that are factors
-      nms_fact <- names(Filter(function(x) is.factor(x) ||
-                                 is.logical(x) ||
-                                 is.character(x),
-                               df_shiny()))
-
-      avail_all <- c("No groups" = ".", nms)
+      avail_all <- c("No groups" = '.', nms)
       avail_con <-
         if (identical(nms_cont, character(0)))
-          c("No continuous vars available" = ".")
+          c("No continuous vars available" = '.')
         else c(nms_cont)
-      avail_fac <-
-        if (identical(nms_fact, character(0)))
-          c("No factors available" = ".")
-        else c("No groups" = ".", nms_fact)
 
       updateSelectInput(session, "y_var", choices = avail_con)
-      updateSelectInput(session, "x_var", choices = c("No x-var" = "' '", nms))
+      updateSelectInput(session, "x_var", choices = c("No x-var" = " ", nms))
       updateSelectInput(session, "group", choices = avail_all)
-      updateSelectInput(session, "facet_row",  choices = avail_fac)
-      updateSelectInput(session, "facet_col",  choices = avail_fac)
+    })
+
+
+    # sensible defaults for xlims and ylims. Note only works for numeric variables.
+    observe({
+      plot_data <- df_shiny() %>% # This little hack is no good.
+        mutate(
+          ` ` = 'x'
+        )
+      updateNumericInput(session, "xmin", value = min(plot_data[[input$x_var]]))
+      updateNumericInput(session, "xmax", value = max(plot_data[[input$x_var]]))
+      updateNumericInput(session, "ymin", value = min(plot_data[[input$y_var]]))
+      updateNumericInput(session, "ymax", value = max(plot_data[[input$y_var]]))
     })
 
 
@@ -489,7 +548,10 @@ p(
 
     df_shiny <- reactive({
       if (input$data_input == 1) {
-        data <- ggplot2::mpg
+        data <- ggplot2::mpg %>%
+          mutate( # Little hack to test t-test and wilcox test functions.
+            year = as.factor(year)
+          )
       } else if (input$data_input == 2) {
         file_in <- input$upload
         # Avoid error message while file is not uploaded yet
@@ -498,6 +560,7 @@ p(
         } else if (input$submit_datafile_button == 0) {
           return(data.frame(x = "Press 'submit datafile' button"))
         } else {
+          # All external file import methods.
           isolate({
             if (input$file_type == "text") {
               data <- read_delim(file_in$datapath,
@@ -542,156 +605,238 @@ p(
 ####### CREATE GRAPH-CODE ###########
 #####################################
 
-    string_code <- reactive({
+    generate_plot <- reactive({
 
       # Variable used for how to deal with x/y in ggplot
-      gg_x_y <- input$Type == "Histogram" ||
-                input$Type == "Density"
+      one_variable <- (input$Type == "Histogram" ||
+                input$Type == "Density")
       # Variable used for how to deal with colour/fill
-      gg_fil <- input$Type == "Histogram" ||
+      fill_geom <- (input$Type == "Histogram" ||
                 input$Type == "Density" ||
-                input$Type == "Dotplot"
+                input$Type == "Dotplot")
 
-      # Only plot jitter when graphs allow them
-      if (gg_fil || input$Type == "Scatter")
-        jitt <- FALSE else jitt <- input$jitter
+      # Deal with mapping first
 
-      p <- paste(
-        "ggplot(df, aes(",
-        if (gg_x_y) {
-          "x = input$y_var"
+      # Is it a one variable or a two variable plot. App I am forking uses
+      # y_var to refer to what I would call x_var in one-variable plots.
+      # TODO: fix this after recreating the original output.
+      if (one_variable) {
+        out_mapping <- aes(
+          x = .data[[input$y_var]],
+          fill = .data[[input$group]],
+          colour = .data[[input$group]]
+        )
+      } else {
+        out_mapping <- aes(
+          x = .data[[input$x_var]],
+          y = .data[[input$y_var]],
+          fill = .data[[input$group]],
+          colour = .data[[input$group]])
+      }
+
+      # Deal with colour or fill of non-grouped plots.
+      # If grouped AND a fill geom, then no colour mapping.
+      # If grouped AND not a fill geom, then no fill mapping.
+      # If not grouped, then no fill or colour mapping.
+      if (input$group != '.') {
+        if (fill_geom) {
+          out_mapping$colour <- NULL
         } else {
-          "x = input$x_var, y = input$y_var"
-        },
-        if (input$group != "." && gg_fil) {
-          ", fill = input$group"
-        } else if (input$group != "." && !gg_fil) {
-          ", colour = input$group"
-        },
-        ")) + ",
-        if (input$Type == "Histogram")
-          paste("geom_histogram(position = 'identity', alpha = input$alpha, ",
-                "binwidth = input$binwidth)", sep = ""),
-        if (input$Type == "Density")
-          paste("geom_density(position = 'identity', alpha = input$alpha, ",
-                "adjust = input$adj_bw)", sep = ""),
-        if (input$Type == "Boxplot")
-          "geom_boxplot(notch = input$notch)",
-        if (input$Type == "Violin")
-          "geom_violin(adjust = input$adj_bw)",
-        if (input$Type == "Dotplot")
-          paste("geom_dotplot(binaxis = 'y', binwidth = input$binwidth, ",
-                "stackdir = 'input$dot_dir')", sep = ""),
-        if (input$Type == "Dot + Error")
-          paste("geom_point(stat = 'summary', fun = 'mean') +\n  ",
-                "geom_errorbar(stat = 'summary', fun.data = 'mean_se', ", "
-                width=0, fun.args = list(mult = input$CI))", sep = ""),
-        if (input$Type == "Scatter")
-          "geom_point()",
-        if (input$Type == "Scatter" && input$line)
-          "+ geom_smooth(se = input$se, method = 'input$smooth')",
-        if (jitt)
-          paste(" + geom_jitter(size = input$size_jitter, ",
-                "alpha = input$opac_jitter, width = input$width_jitter, ",
-                "colour = 'input$col_jitter')", sep = ""),
-        sep = ""
+          out_mapping$fill <- NULL
+        }
+      } else{
+        out_mapping$fill <- NULL
+        out_mapping$colour <- NULL
+      }
+
+      # Obtain plot data and add column to handle cases where no x is selected.
+      plot_data <- df_shiny() %>%
+        mutate(
+          ` ` = 'x'
+        )
+
+      # Set up shared part of plot object
+      out_plot <- ggplot(
+        data = plot_data,
+        mapping = out_mapping
       )
 
-      # if at least one facet column/row is specified, add it
-      facets <- paste(input$facet_row, "~", input$facet_col)
-      if (facets != ". ~ .")
-        p <- paste(p, "+ facet_grid(", facets, ")")
+      # Add geoms as required.
+      if (input$Type == "Histogram") {
+        out_plot <- out_plot + geom_histogram(
+          position = 'identity',
+          alpha = input$alpha,
+          binwidth = input$binwidth
+        )
+      } else if (input$Type == "Density") {
+        out_plot <- out_plot + geom_density(
+          position = 'identity',
+          alpha = input$alpha,
+          adjust = input$adj_bw
+        )
+      } else if (input$Type == "Boxplot") {
+        out_plot <- out_plot + geom_boxplot(
+          notch = input$notch
+        )
 
-      # if labels specified
-      if (input$label_axes)
-        p <- paste(p, "+ labs(x = 'input$lab_x', y = 'input$lab_y')")
+        # If two groups in x variable, output t test and wilcox test as
+        # annotation
+        if (length(unique(plot_data[[input$x_var]])) == 2) {
+          annotation <- generate_test_annotation(
+            plot_data,
+            input$x_var,
+            input$y_var
+          )
 
-      # if title specified
-      if (input$add_title)
-        p <- paste(p, "+ ggtitle('input$title')")
+          out_plot <- out_plot + annotation
+        }
 
-      # if legend specified
-      if (input$adj_leg == "Change legend")
-        p <- paste(p, "+ labs(",
-                   if (gg_fil) "fill" else "colour",
-                   " = 'input$leg_ttl')",
-                   sep = "")
+      } else if (input$Type == "Violin") {
+        out_plot <- out_plot + geom_violin(
+          adjust = input$adj_bw
+        )
 
-      # if colour legend specified
-      if (input$adj_col)
-        p <- paste(p, "+ scale_",
-                   if (gg_fil) "fill" else "colour",
-                   "_brewer(palette = 'input$palet')",
-                   sep = "")
+        # TODO: Refactor all annotation handling to avoid copy paste.
+        # If two groups in x variable, output t test and wilcox test as
+        # annotation
+        if (length(unique(plot_data[[input$x_var]])) == 2) {
+          annotation <- generate_test_annotation(
+            plot_data,
+            input$x_var,
+            input$y_var
+          )
 
-      # If a theme specified
-      p <- paste(p, "+", input$theme)
+          out_plot <- out_plot + annotation
+        }
+      } else if (input$Type == "Scatter") {
+        out_plot <- out_plot + geom_point()
 
-      # If theme features are specified
-      if (input$adj_fnt_sz ||
-          input$adj_fnt ||
-          input$rot_txt ||
-          input$adj_leg != "Keep legend as it is" ||
-          input$adj_grd) {
-        p <- paste(
-          p,
-          paste(
-            " + theme(\n    ",
-            if (input$adj_fnt_sz)
-"axis.title = element_text(size = input$fnt_sz_ttl),\n    ",
-            if (input$adj_fnt_sz)
-"axis.text = element_text(size = input$fnt_sz_ax),\n    ",
-            if (input$adj_fnt)
-"text = element_text(family = 'input$font'),\n    ",
-            if (input$rot_txt)
-"axis.text.x = element_text(angle = 45, hjust = 1),\n    ",
-            if (input$adj_leg == "Remove legend")
-"legend.position = 'none',\n    ",
-            if (input$adj_leg == "Change legend")
-"legend.position = 'input$pos_leg',\n    ",
-            if (input$grd_maj)
-"panel.grid.major = element_blank(),\n    ",
-            if (input$grd_min)
-"panel.grid.minor = element_blank(),\n    ",
-")",
-            sep = ""
-          ),
-          sep = ""
+        if (input$line) {
+          annotation <- generate_coeff_annotation(
+            plot_data,
+            input$x_var,
+            input$y_var,
+            input$smooth
+          )
+
+          out_plot <- out_plot +
+            geom_smooth(
+              se = input$se,
+              method = input$smooth
+            ) +
+            annotation
+        }
+      }
+
+      # Prevent geom_jitter from being added if not applicable
+      if (fill_geom || input$Type == "Scatter") {
+        jitt <- FALSE
+      } else {
+        jitt <- input$jitter
+      }
+
+      # Add geom_jitter
+      if (jitt) {
+        out_plot <- out_plot + geom_jitter(
+          size = input$size_jitter,
+          alpha = input$opac_jitter,
+          width = input$width_jitter,
+          colour = input$col_jitter
         )
       }
 
-      # Replace name of variables by values
-      p <- str_replace_all(
-             p,
-             c("input\\$y_var" = input$y_var,
-               "input\\$x_var" = input$x_var,
-               "input\\$group" = input$group,
-               "input\\$notch" = as.character(input$notch),
-               "input\\$binwidth" = as.character(input$binwidth),
-               "input\\$adj_bw" = as.character(input$adj_bw),
-               "input\\$dot_dir" = as.character(input$dot_dir),
-               "input\\$alpha" = as.character(input$alpha),
-               "input\\$se" = as.character(input$se),
-               "input\\$smooth" = as.character(input$smooth),
-               "input\\$CI" = as.character(input$CI),
-               "input\\$size_jitter" = as.character(input$size_jitter),
-               "input\\$width_jitter" = as.character(input$width_jitter),
-               "input\\$opac_jitter" = as.character(input$opac_jitter),
-               "input\\$col_jitter" = as.character(input$col_jitter),
-               "input\\$lab_x" = as.character(input$lab_x),
-               "input\\$lab_y" = as.character(input$lab_y),
-               "input\\$title" = as.character(input$title),
-               "input\\$palet" = as.character(input$palet),
-               "input\\$fnt_sz_ttl" = as.character(input$fnt_sz_ttl),
-               "input\\$fnt_sz_ax" = as.character(input$fnt_sz_ax),
-               "input\\$font" = as.character(input$font),
-               "input\\$leg_ttl" = as.character(input$leg_ttl),
-               "input\\$pos_leg" = as.character(input$pos_leg))
-      )
-      # Creates well-formatted R-code for output
-      p <- str_replace_all(p, ",\n    \\)", "\n  \\)")
+      # Handle labels.
+      if (input$label_axes) {
+        out_plot <- out_plot +
+          labs(
+            x = input$lab_x,
+            y = input$lab_y
+          )
+      }
 
-      p
+      # if title specified
+      if (input$add_title) {
+        out_plot <- out_plot + labs(
+          title = input$title
+        )
+      }
+
+      # if legend label change specified
+      if (input$adj_leg == "Change legend") {
+
+        if (fill_geom) {
+          legend_label = labs(
+            fill = input$leg_ttl
+          )
+        } else {
+          legend_label = labs(
+            colour = input$leg_ttl
+          )
+        }
+
+        out_plot <- out_plot + legend_label
+      }
+
+      # If colour scheme given
+      if (input$adj_col) {
+        if (fill_geom) {
+          out_plot <- out_plot + scale_fill_brewer(
+            palette = input$palet
+          )
+        } else{
+          out_plot <- out_plot + scale_colour_brewer(
+            palette = input$palet
+          )
+        }
+      }
+
+      # Handle themes
+
+      # Theme selection
+      out_plot <- out_plot + match.fun(input$theme)()
+
+      # For other modifications, set up empty theme. All required modifications
+      # will be added to the theme object and the resulting theme added to
+      # out_plot.
+      out_theme <- theme()
+
+      # font size:
+      if (input$adj_fnt_sz) {
+        out_theme$axis.title <- element_text(size = input$fnt_sz_ttl)
+        out_theme$axis.text = element_text(size = input$fnt_sz_ax)
+      }
+      if (input$adj_fnt) {
+        out_theme$text = element_text(family = input$font)
+      }
+      if (input$rot_txt) {
+        out_theme$axis.text.x = element_text(angle = 45, hjust = 1)
+      }
+      if (input$adj_leg == "Remove legend") {
+        out_theme$legend.position = 'none'
+      }
+      if (input$adj_leg == "Change legend") {
+        out_theme$legend.position = input$pos_leg
+      }
+      if (input$grd_maj) {
+        out_theme$panel.grid.major = element_blank()
+      }
+      if (input$grd_min) {
+        out_theme$panel.grid.minor = element_blank()
+      }
+
+      out_plot <- out_plot + out_theme
+
+      # Handle changes in x and y limits.
+      if (input$adj_axis_lims) {
+        out_plot <- out_plot +
+          coord_cartesian(
+            xlim = c(input$xmin, input$xmax),
+            ylim = c(input$ymin, input$ymax)
+          )
+      }
+
+      out_plot
+
     })
 
 
@@ -708,66 +853,26 @@ p(
     width_download <- reactive ({ input$fig_width_download })
     height_download <- reactive ({ input$fig_height_download })
 
-    output$out_ggplot <- renderPlot(width = width,
-                                    height = height, {
-      # evaluate the string RCode as code
-      df <- df_shiny()
-      p <- eval(parse(text = string_code()))
-      p
-    })
-
-    output$out_plotly <- renderPlotly({
-      # evaluate the string RCode as code
-      df <- df_shiny()
-      p <- eval(parse(text = string_code()))
-      ggplotly(p)
-    })
+    output$out_ggplot <- renderPlot(
+      width = width,
+      height = height,
+      {
+        p <- generate_plot()
+        p
+      }
+    )
 
 #####################################
-#### GENERATE R-CODE FOR OUTPUT #####
+#### GENERATE OUTPUT PLOTS #####
 #####################################
 
-    output$out_r_code <- renderText({
-
-      gg_code <- string_code()
-      gg_code <- str_replace_all(gg_code, "\\+ ", "+\n  ")
-
-      paste(
-        "## You can use the below code to generate the graph.\n",
-        "## Don't forget to replace the 'df' with the name\n",
-        "## of your dataframe\n\n",
-        "# You need the following package(s):\n",
-        "library(\"ggplot2\")\n\n",
-        "# The code below will generate the graph:\n",
-        "graph <- ",
-        gg_code,
-        "\ngraph\n\n",
-        "# If you want the plot to be interactive,\n",
-        "# you need the following package(s):\n",
-        "library(\"plotly\")\n",
-        "ggplotly(graph)\n\n",
-        "# If you would like to save your graph, you can use:\n",
-        "ggsave('my_graph.pdf', graph, width = ",
-        width_download(),
-        ", height = ",
-        height_download(),
-        ", units = 'cm')",
-        sep = ""
-      )
-
-    })
-
-#####################################
-#### GENERATE R-CODE FOR OUTPUT #####
-#####################################
-
+  # Also evaluates code here.
   output$download_plot_PDF <- downloadHandler(
       filename <- function() {
         paste("Figure_ggplotGUI_", Sys.time(), ".pdf", sep = "")
       },
       content <- function(file) {
-        df <- df_shiny()
-        p <- eval(parse(text = string_code()))
+        p <- generate_plot()
         ggsave(file, p, width = width_download(),
                height = height_download(), units = "cm")
       },
@@ -778,4 +883,89 @@ p(
     session$onSessionEnded(stopApp)
   }
   shinyApp(ui, server)
+}
+
+
+### Helper function for adding correlation and p-values to scatter plots.
+generate_coeff_annotation <- function(
+  plot_data,
+  x_var,
+  y_var,
+  smooth_method) {
+  if (smooth_method == "lm") {
+    method <- 'pearson'
+    tag <- "Pearson's r:"
+  } else {
+    method <- 'spearman'
+    tag <- "Spearman's rho:"
+  }
+
+  plot_cor <- cor.test(
+    plot_data[[x_var]],
+    plot_data[[y_var]],
+    method = method
+  )
+
+  annotation <- annotate(
+    "label",
+    label = glue(
+      "{tag} {signif(plot_cor$estimate[[1]], digits=2)}\n",
+      "p-value: {signif(plot_cor$p.value, digits=2)}"
+    ),
+    x=Inf,
+    y = Inf,
+    vjust=1,
+    hjust=1,
+    alpha = 0.5
+  )
+  annotation
+}
+
+# Helper to generate annotations for t-test and wilcox test results for violin
+# plot and box plots. Assumes only two unique values for x (tested before
+# calling)
+generate_test_annotation <- function(plot_data, x_var, y_var) {
+  x_values <- unique(plot_data[[x_var]])
+  vector_1 <- plot_data %>%
+    filter(
+      .data[[x_var]] == x_values[[1]]
+    ) %>%
+    pull(y_var)
+  vector_2 <- plot_data %>%
+    filter(
+      .data[[x_var]] == x_values[[2]]
+    ) %>%
+    pull(y_var)
+
+  t_result <- t.test(
+    vector_1,
+    vector_2,
+    alternative = 'two.sided',
+    paired = FALSE,
+    var.equal = FALSE
+  )
+  wilcox_result <- wilcox.test(
+    vector_1,
+    vector_2,
+    alternative = 'two.sided',
+    paired = FALSE
+  )
+
+  annotation <- annotate(
+    "label",
+    label = glue(
+      "Non-paired t-test: \n",
+      "\t test statistic: {signif(t_result$statistic[[1]], digits=2)}\n",
+      "\t p-value: {signif(t_result$p.value, digits=2)}\n",
+      "Non-paired Wilcox test: \n",
+      "\t test statistic: {signif(wilcox_result$statistic[[1]], digits=2)}\n",
+      "\t p-value: {signif(wilcox_result$p.value, digits=2)}"
+    ),
+    x=Inf,
+    y = Inf,
+    vjust=1,
+    hjust=1,
+    alpha = 0.75
+  )
+  annotation
 }
