@@ -476,10 +476,28 @@ p(
         if (identical(nms_cont, character(0)))
           c("No continuous vars available" = '.')
         else c(nms_cont)
+      avail_fact <- names(Filter(function(x) is.character(x) ||
+                                   is.factor(x),
+                                 df_shiny()))
 
-      updateSelectInput(session, "y_var", choices = avail_con)
-      updateSelectInput(session, "x_var", choices = c("No x-var" = " ", nms))
-      updateSelectInput(session, "group", choices = avail_all)
+      if (input$Type == 'Violin' ||
+          input$Type == 'Boxplot') {
+        x_choices <- c("No x-var" = " ", avail_fact)
+        y_choices <- avail_con
+        group_choices <- c("No groups" = '.', avail_fact)
+      } else if (input$Type == "Scatter") {
+        x_choices <- c("No x-var" = " ", avail_con)
+        y_choices <- avail_con
+        group_choices <- c("No groups" = '.', avail_fact)
+      } else {
+        x_choices <- c("No x-var" = " ", nms)
+        y_choices <- avail_con
+        group_choices <- c("No groups" = '.', avail_fact)
+      }
+
+      updateSelectInput(session, "y_var", choices = y_choices)
+      updateSelectInput(session, "x_var", choices = x_choices)
+      updateSelectInput(session, "group", choices = group_choices)
     })
 
 
