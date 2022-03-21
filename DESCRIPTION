@@ -3,10 +3,11 @@ Title: Create Ggplots via a Graphical User Interface
 Version: 1.0.1
 Authors@R: person("Joshua", "Black", email = "joshua.black@canterbury.ac.nz", role = c("aut", "cre"))
 Description: Modification of Gert Stulp's ggplotgui for teaching in ARTS102 at the University of Canterbury. 
-Depends: R (>= 3.4)
+Depends: R (>= 4.1)
 Imports:
     shiny,
     ggplot2,
+    rmarkdown,
     plotly,
     stringr,
     readr,
@@ -15,7 +16,8 @@ Imports:
     readxl,
     RColorBrewer,
     glue,
-    dplyr
+    dplyr,
+    pkgload
 License: GPL-3
 BugReports: https://github.com/JoshuaBlack/ggplotgui/issues
 URL: https://github.com/JoshuaBlack/ggplotgui/
