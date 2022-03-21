@@ -1,22 +1,24 @@
 Package: ggplotgui
 Title: Create Ggplots via a Graphical User Interface
 Version: 1.0.1
-Authors@R: person("Gert", "Stulp", email = "g.stulp@rug.nl", role = c("aut", "cre"))
-Description: Easily explore data by creating ggplots through a (shiny-)GUI. R-code to recreate graph provided.   
+Authors@R: person("Joshua", "Black", email = "joshua.black@canterbury.ac.nz", role = c("aut", "cre"))
+Description: Modification of Gert Stulp's ggplotgui for teaching in ARTS102 at the University of Canterbury. 
 Depends: R (>= 3.4)
 Imports:
-    plotly,
     shiny,
     ggplot2,
+    plotly,
     stringr,
     readr,
     haven,
     DT,
     readxl,
-    RColorBrewer
+    RColorBrewer,
+    glue,
+    dplyr
 License: GPL-3
-BugReports: https://github.com/gertstulp/ggplotgui/issues
-URL: https://github.com/gertstulp/ggplotgui/
+BugReports: https://github.com/JoshuaBlack/ggplotgui/issues
+URL: https://github.com/JoshuaBlack/ggplotgui/
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.1.1

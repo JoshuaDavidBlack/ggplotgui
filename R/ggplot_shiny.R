@@ -16,12 +16,13 @@
 #' @importFrom stringr str_replace_all
 #' @importFrom readr read_delim locale
 #' @importFrom DT renderDT DTOutput
+#' @importFrom stats cor.test t.test wilcox.test
 
 #' @export
 ggplot_shiny <- function( dataset = NA ) {
 
   ui <- fluidPage(
-    headerPanel("ARTS105 Data Visualisation Interface"),
+    headerPanel("ARTS102 Data Visualisation Interface"),
 
     sidebarPanel(width = 3,
 
@@ -48,7 +49,7 @@ ggplot_shiny <- function( dataset = NA ) {
         # Panel on if default dataset used.
         conditionalPanel(
           condition = "input.data_input=='1'",
-          h5("dataset 'mpg' from library(ggplot2) loaded")
+          h5("Tutorial sample data loaded")
         ),
 
         # Panel to allow user to upload data.
@@ -58,10 +59,12 @@ ggplot_shiny <- function( dataset = NA ) {
           fileInput("upload", "", multiple = FALSE),
           selectInput("file_type", "Type of file:",
                       list("text (csv)" = "text",
-                           "Excel" = "Excel",
-                           "SPSS" = "SPSS",
-                           "Stata" = "Stata",
-                           "SAS" = "SAS"),
+                           "Excel" = "Excel"
+                           # # Removing these options as distracting for students.
+                           #"SPSS" = "SPSS",
+                           #"Stata" = "Stata",
+                           #"SAS" = "SAS"
+                           ),
                       selected = "text"),
           # If csv, panel asks for details of the csv file.
           conditionalPanel(
@@ -165,13 +168,13 @@ ggplot_shiny <- function( dataset = NA ) {
                       choices = c("up", "down", "center", "centerwhole"),
                       selected = "up")
         ),
-        # Density and violin get bandwith adjustment.
-        conditionalPanel(
-          condition = "input.Type == 'Density' || input.Type == 'Violin'",
-          sliderInput(inputId = "adj_bw",
-                      label = "Bandwidth adjustment:",
-                      min = 0.01, max = 2, value = 1, step = 0.1)
-        ),
+        # # Density and violin get bandwith adjustment.
+        # conditionalPanel(
+        #   condition = "input.Type == 'Density' || input.Type == 'Violin'",
+        #   sliderInput(inputId = "adj_bw",
+        #               label = "Bandwidth adjustment:",
+        #               min = 0.01, max = 2, value = 1, step = 0.1)
+        # ),
 
         # Add regression line.
         conditionalPanel(
@@ -202,10 +205,10 @@ ggplot_shiny <- function( dataset = NA ) {
       )
     ),
 
-    # This is text which sits above the main tabs.
-    h6("For more info see the 'Info'-tab or visit",
-       a("https://github.com/gertstulp/ggplotgui",
-         href = "https://github.com/gertstulp/ggplotgui")),
+    # # This is text which sits above the main tabs.
+    # h6("For more info see the 'Info'-tab or visit",
+    #    a("https://github.com/gertstulp/ggplotgui",
+    #      href = "https://github.com/gertstulp/ggplotgui")),
 
 #####################################
 ########### OUPUT TABS ##############
@@ -225,65 +228,16 @@ ggplot_shiny <- function( dataset = NA ) {
                 ),
         # Defines all info text here. Will have to manually update.
         tabPanel("Info",
-h3("Background"),
-p(
-  a("R", href = "https://www.r-project.org/"), "is amazing, but daunting
-  for many. The programming style of R, compared to the point-and-click
-  style of typical software, is a hurdle for many. Perhaps particularly so
-  for those in the social sciences, whose statistical needs are often met by
-  other software packages. Yet such packages are often very limited in terms
-  of their options to visualize the data at hand. I believe that the amazing
-  visualization-capabilities of R might be one way to get more people to use it.
-  To lower the barrier to start using R, this package allows users to visualize
-  their data using an online graphical user interface (GUI) that makes use of
-  R's visualization package",
-  a("ggplot", href = "http://ggplot2.org/"),
-  ". There are two ways of using this functionality: 1) online, where users
-  can upload their data and visualize it without needing R, by visiting ",
-  a("this website",
-    href = "https://site.shinyserver.dck.gmw.rug.nl/ggplotgui/"),
-  "; 2) from within the R-environment (by using the ", code("ggplot_shiny()"),
-  "function). Importantly, the R-code will also be provided such that the user
-  can recreate the graphs within the R-environment. The main aim (or hope) is
-  to get more people using R and its wonderful (graphing) capabilities."
-),
 h3("App info"),
 p(
-  "This application was built in ",
-  a("R", href = "https://www.r-project.org/"),
-  "version 3.3.2, and uses the following packages: ",
-  a("ggplot2", href = "http://ggplot2.tidyverse.org/"), ",",
-  a("Shiny", href = "http://www.rstudio.com/shiny/"), ",",
-  a("stringr", href = "http://stringr.tidyverse.org/"), ",",
-  a("plotly", href = "https://plot.ly/r/"), ",",
-  a("readr", href = "http://readr.tidyverse.org/"), ",",
-  a("readxl", href = "http://readxl.tidyverse.org/"), ",",
-  a("haven", href = "http://haven.tidyverse.org/"), ", and",
-  a("RColorBrewer.", href = "http://stringr.tidyverse.org/")
-),
-p(
-  "This application was created by ",
+  "This application was created for ARTS102 on the basis of ",
+  a("ggplotgui", href = "https://github.com/gertstulp/ggplotgui"),
+  " by ",
   a("Gert Stulp", href = "http://www.gertstulp.com/"),
-  ". Please do report bugs and send feature requests to ",
-  a("g.stulp[at]rug.nl", href = "mailto:g.stulp@rug.nl"),
-  ". Visit ",
-  a("https://github.com/gertstulp/ggplotgui",
-    href = "https://github.com/gertstulp/ggplotgui"),
-  "for further description and code."
-),
-h3("Acknowledgements"),
-p(
-  "Thanks to Wilmer Joling for setting up the ",
-  a("website", href = "https://site.shinyserver.dck.gmw.rug.nl/ggplotgui/"),
-  "which is based on the magical but incomprehensible",
-  a("docker", href = "https://www.docker.com/"),
-  ". Thanks to ",
-  a("Hadley Wickham", href = "http://hadley.nz/"),
-  " for making such good packages (and open access
-  books describing them), that allow even low-skilled
-  and low-talented programmers like myself to be able to
-  contribute to R"
+  ". For more information see ",
+  a("https://github.com/JoshuaDavidBlack/ggplotgui", href = "https://github.com/JoshuaDavidBlack/ggplotgui"),
 )
+
         ),
         id = "tabs"
       )
@@ -548,10 +502,12 @@ p(
 
     df_shiny <- reactive({
       if (input$data_input == 1) {
-        data <- ggplot2::mpg %>%
-          mutate( # Little hack to test t-test and wilcox test functions.
-            year = as.factor(year)
-          )
+        # Version with mpg as sample data.
+        # data <- ggplot2::mpg %>%
+        #   mutate( # Little hack to test t-test and wilcox test functions.
+        #     year = as.factor(year)
+        #   )
+        data <- ggplotgui::tut_data
       } else if (input$data_input == 2) {
         file_in <- input$upload
         # Avoid error message while file is not uploaded yet
@@ -650,10 +606,23 @@ p(
       }
 
       # Obtain plot data and add column to handle cases where no x is selected.
+      # Remove any data in which x or y are NA.
       plot_data <- df_shiny() %>%
         mutate(
           ` ` = 'x'
+        ) %>%
+        filter(
+          !is.na(.data[[input$x_var]]),
+          !is.na(.data[[input$y_var]])
         )
+
+      # Remove NA values from grouping variable if groups selected.
+      if (input$group != '.') {
+        plot_data <- plot_data %>%
+          filter(
+            !is.na(.data[[input$group]])
+          )
+      }
 
       # Set up shared part of plot object
       out_plot <- ggplot(
@@ -671,8 +640,8 @@ p(
       } else if (input$Type == "Density") {
         out_plot <- out_plot + geom_density(
           position = 'identity',
-          alpha = input$alpha,
-          adjust = input$adj_bw
+          alpha = input$alpha
+          # adjust = input$adj_bw
         )
       } else if (input$Type == "Boxplot") {
         out_plot <- out_plot + geom_boxplot(
@@ -693,7 +662,7 @@ p(
 
       } else if (input$Type == "Violin") {
         out_plot <- out_plot + geom_violin(
-          adjust = input$adj_bw
+          # adjust = input$adj_bw
         )
 
         # TODO: Refactor all annotation handling to avoid copy paste.
@@ -925,6 +894,7 @@ generate_coeff_annotation <- function(
 # plot and box plots. Assumes only two unique values for x (tested before
 # calling)
 generate_test_annotation <- function(plot_data, x_var, y_var) {
+  # if (input$group != '.')
   x_values <- unique(plot_data[[x_var]])
   vector_1 <- plot_data %>%
     filter(
@@ -962,7 +932,7 @@ generate_test_annotation <- function(plot_data, x_var, y_var) {
       "\t p-value: {signif(wilcox_result$p.value, digits=2)}"
     ),
     x=Inf,
-    y = Inf,
+    y=Inf,
     vjust=1,
     hjust=1,
     alpha = 0.75
