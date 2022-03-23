@@ -225,8 +225,16 @@ ggplot_shiny <- function( dataset = NA ) {
                  mainPanel(
                    downloadButton("download_plot_PDF",
                                   "Download pdf of figure"),
-                   plotOutput("out_ggplot"))
-                ),
+                   plotOutput(
+                     "out_ggplot",
+                     height = "auto"
+                    ),
+                   htmlOutput(
+                     "out_html",
+                     container=div
+                    )
+                )
+        ),
         # Defines all info text here. Will have to manually update.
         tabPanel("Info",
 h3("App info"),
@@ -667,52 +675,52 @@ p(
           notch = input$notch
         )
 
-        # If two groups in x variable, output t test and wilcox test as
-        # annotation
-        if (length(unique(plot_data[[input$x_var]])) == 2) {
-          annotation <- generate_test_annotation(
-            plot_data,
-            input$x_var,
-            input$y_var
-          )
-
-          out_plot <- out_plot + annotation
-        }
+        # # If two groups in x variable, output t test and wilcox test as
+        # # annotation
+        # if (length(unique(plot_data[[input$x_var]])) == 2) {
+        #   annotation <- generate_test_annotation(
+        #     plot_data,
+        #     input$x_var,
+        #     input$y_var
+        #   )
+        #
+        #   out_plot <- out_plot + annotation
+        # }
 
       } else if (input$Type == "Violin") {
         out_plot <- out_plot + geom_violin(
           # adjust = input$adj_bw
         )
 
-        # TODO: Refactor all annotation handling to avoid copy paste.
-        # If two groups in x variable, output t test and wilcox test as
-        # annotation
-        if (length(unique(plot_data[[input$x_var]])) == 2) {
-          annotation <- generate_test_annotation(
-            plot_data,
-            input$x_var,
-            input$y_var
-          )
-
-          out_plot <- out_plot + annotation
-        }
+        # # TODO: Refactor all annotation handling to avoid copy paste.
+        # # If two groups in x variable, output t test and wilcox test as
+        # # annotation
+        # if (length(unique(plot_data[[input$x_var]])) == 2) {
+        #   annotation <- generate_test_annotation(
+        #     plot_data,
+        #     input$x_var,
+        #     input$y_var
+        #   )
+        #
+        #   out_plot <- out_plot + annotation
+        # }
       } else if (input$Type == "Scatter") {
         out_plot <- out_plot + geom_point()
 
         if (input$line) {
-          annotation <- generate_coeff_annotation(
-            plot_data,
-            input$x_var,
-            input$y_var,
-            input$smooth
-          )
+          # annotation <- generate_coeff_annotation(
+          #   plot_data,
+          #   input$x_var,
+          #   input$y_var,
+          #   input$smooth
+          # )
 
           out_plot <- out_plot +
             geom_smooth(
               se = input$se,
               method = input$smooth
-            ) +
-            annotation
+            ) # +
+            # annotation
         }
       }
 
@@ -827,6 +835,109 @@ p(
 
     })
 
+    generate_annotation <- reactive({
+
+      # Inefficient
+      plot_data <- df_shiny() %>%
+        mutate(
+          ` ` = 'x'
+        ) %>%
+        filter(
+          !is.na(.data[[input$x_var]]),
+          !is.na(.data[[input$y_var]])
+        )
+
+      # Handle case with scatterplot.
+      if (input$Type == "Scatter" && input$line) {
+        # Case if no groups
+        if (input$group == ".") {
+          out_html <- generate_coeff_text(
+            plot_data,
+            input$x_var,
+            input$y_var,
+            input$smooth
+          )
+        } else {
+          groups <- plot_data %>%
+            # remove NAs for group.
+            filter(
+              !is.na(.data[[input$group]])
+            ) %>%
+            pull(.data[[input$group]]) %>%
+            unique()
+
+          out_html <- ""
+
+          for (i in seq_along(groups)) {
+            group_data <- plot_data %>%
+              filter(
+                .data[[input$group]] == groups[[i]]
+              )
+
+            group_values <- generate_coeff_text(
+              group_data,
+              input$x_var,
+              input$y_var,
+              input$smooth
+            )
+
+            out_html <- glue(
+              "{out_html}",
+              "<b>{input$group}: {groups[[i]]}</b>",
+              "{group_values}"
+            )
+
+          }
+        }
+      # Handle boxplot or violin case.
+      } else if ((input$Type == "Boxplot" ||
+                 input$Type == "Violin") &&
+                 length(unique(plot_data[[input$x_var]])) == 2) {
+        if (input$group == ".") {
+          out_html <- generate_test_text(
+            plot_data,
+            input$x_var,
+            input$y_var
+          )
+        } else {
+          groups <- plot_data %>%
+            # remove NAs for group.
+            filter(
+              !is.na(.data[[input$group]])
+            ) %>%
+            pull(.data[[input$group]]) %>%
+            unique()
+
+          out_html <- ""
+
+          for (i in seq_along(groups)) {
+            group_data <- plot_data %>%
+              filter(
+                .data[[input$group]] == groups[[i]]
+              )
+
+            group_values <- generate_test_text(
+              group_data,
+              input$x_var,
+              input$y_var
+            )
+
+            out_html <- glue(
+              "{out_html}",
+              "<b>{input$group}: {groups[[i]]}</b>",
+              "{group_values}"
+            )
+
+          }
+        }
+      } else {
+        out_html <- ""
+      }
+
+      # Handle case with violin or boxplot.
+
+      out_html
+    })
 
 #####################################
 ###### GRAPHICAL/TABLE OUTPUT #######
@@ -849,6 +960,8 @@ p(
         p
       }
     )
+
+    output$out_html <- renderUI(HTML(glue("{generate_annotation()}")))
 
 #####################################
 #### GENERATE OUTPUT PLOTS #####
@@ -913,7 +1026,6 @@ generate_coeff_annotation <- function(
 # plot and box plots. Assumes only two unique values for x (tested before
 # calling)
 generate_test_annotation <- function(plot_data, x_var, y_var) {
-  # if (input$group != '.')
   x_values <- unique(plot_data[[x_var]])
   vector_1 <- plot_data %>%
     filter(
@@ -957,4 +1069,82 @@ generate_test_annotation <- function(plot_data, x_var, y_var) {
     alpha = 0.75
   )
   annotation
+}
+
+
+### Helper function for generating correlation and p-values text to display below scatter plots..
+generate_coeff_text<- function(
+  plot_data,
+  x_var,
+  y_var,
+  smooth_method) {
+  if (smooth_method == "lm") {
+    method <- 'pearson'
+    tag <- "Pearson's r:"
+  } else {
+    method <- 'spearman'
+    tag <- "Spearman's rho:"
+  }
+
+  plot_cor <- cor.test(
+    plot_data[[x_var]],
+    plot_data[[y_var]],
+    method = method
+  )
+
+  out_text <- glue(
+    "<ul>",
+    "<li><b>{tag}</b> {signif(plot_cor$estimate[[1]], digits=2)}</li>",
+    "<li><b>p-value:</b> {signif(plot_cor$p.value, digits=2)}</li>",
+    '</ul>'
+  )
+
+  out_text
+}
+
+
+# Helper to generate text output for t-test and wilcox test results for violin
+# plot and box plots. Assumes only two unique values for x (tested before
+# calling)
+generate_test_text <- function(plot_data, x_var, y_var) {
+  x_values <- unique(plot_data[[x_var]])
+  vector_1 <- plot_data %>%
+    filter(
+      .data[[x_var]] == x_values[[1]]
+    ) %>%
+    pull(y_var)
+  vector_2 <- plot_data %>%
+    filter(
+      .data[[x_var]] == x_values[[2]]
+    ) %>%
+    pull(y_var)
+
+  t_result <- t.test(
+    vector_1,
+    vector_2,
+    alternative = 'two.sided',
+    paired = FALSE,
+    var.equal = FALSE
+  )
+  wilcox_result <- wilcox.test(
+    vector_1,
+    vector_2,
+    alternative = 'two.sided',
+    paired = FALSE
+  )
+
+  out_text <- glue(
+    "<p>t-test:</p>",
+    "<ul>",
+    #"<li>Test statistic: {signif(t_result$statistic[[1]], digits=2)}</li>",
+    "<li>p-value: {signif(t_result$p.value, digits=2)}</li>",
+    "</ul>",
+    "<p>Wilcox test:</p>",
+    "<ul>",
+    #"<li>Test statistic: {signif(wilcox_result$statistic[[1]], digits=2)}</li>",
+    "<li>p-value: {signif(wilcox_result$p.value, digits=2)}</li>",
+    "</ul>"
+  )
+
+  out_text
 }
