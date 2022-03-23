@@ -12,7 +12,6 @@
 #' @import readxl
 #' @import haven
 #' @import RColorBrewer
-#' @import rmarkdown
 #' @importFrom plotly ggplotly plotlyOutput renderPlotly
 #' @importFrom stringr str_replace_all
 #' @importFrom readr read_delim locale
@@ -23,6 +22,8 @@
 ggplot_shiny <- function( dataset = NA ) {
 
   ui <- fluidPage(
+    img(src="assets/UoC.png", style = "max-width: 100%; max-height: 75px;"),
+
     headerPanel("ARTS102 Data Visualisation Interface"),
 
     sidebarPanel(width = 3,
@@ -141,6 +142,9 @@ ggplot_shiny <- function( dataset = NA ) {
           condition = "input.Type == 'Boxplot' || input.Type == 'Violin'",
           checkboxInput(inputId = "jitter",
                         label = strong("Show data points (jittered)"),
+                        value = FALSE),
+          checkboxInput(inputId = "stat_out",
+                        label = strong("Show statistical tests (if applicable)."),
                         value = FALSE)
         ),
 
@@ -245,6 +249,12 @@ p(
   a("Gert Stulp", href = "http://www.gertstulp.com/"),
   ". For more information see ",
   a("https://github.com/JoshuaDavidBlack/ggplotgui", href = "https://github.com/JoshuaDavidBlack/ggplotgui"),
+),
+p(
+  "Many thanks to the School of Mathematics and Statistics at the University of ",
+  "Canterbury for hosting this interactive on their ",
+  a("shinyapps.io", href="https://www.shinyapps.io"),
+  " account."
 )
 
         ),
@@ -549,15 +559,16 @@ p(
               data <- read_delim(file_in$datapath,
                                  delim = input$upload_delim,
                                  locale = locale(decimal_mark = input$upload_dec),
-                                 col_names = TRUE)
+                                 col_names = TRUE,
+                                 n_max=5000)
             } else if (input$file_type == "Excel") {
-              data <- read_excel(file_in$datapath)
+              data <- read_excel(file_in$datapath, n_max=5000)
             } else if (input$file_type == "SPSS") {
-              data <- read_sav(file_in$datapath)
+              data <- read_sav(file_in$datapath, n_max=5000)
             } else if (input$file_type == "Stata") {
-              data <- read_dta(file_in$datapath)
+              data <- read_dta(file_in$datapath, n_max=5000)
             } else if (input$file_type == "SAS") {
-              data <- read_sas(file_in$datapath)
+              data <- read_sas(file_in$datapath, n_max=5000)
             }
           })
         }
@@ -574,7 +585,8 @@ p(
               data <- read_delim(input$data_paste,
                                  delim = input$text_delim,
                                  locale = locale(decimal_mark = input$text_dec),
-                                 col_names = TRUE)
+                                 col_names = TRUE,
+                                 n_max=5000)
             })
           }
         }
@@ -892,14 +904,15 @@ p(
       # Handle boxplot or violin case.
       } else if ((input$Type == "Boxplot" ||
                  input$Type == "Violin") &&
-                 length(unique(plot_data[[input$x_var]])) == 2) {
+                 length(unique(plot_data[[input$x_var]])) == 2 &&
+                 input$stat_out) {
         if (input$group == ".") {
           out_html <- generate_test_text(
             plot_data,
             input$x_var,
             input$y_var
           )
-        } else {
+        } else if (input$group != input$x_var) {
           groups <- plot_data %>%
             # remove NAs for group.
             filter(
@@ -929,12 +942,12 @@ p(
             )
 
           }
+        } else {
+          out_html <- "<p>Statistical tests not displayed when group variable is the same as x variable.</p>"
         }
       } else {
         out_html <- ""
       }
-
-      # Handle case with violin or boxplot.
 
       out_html
     })
